@@ -63,26 +63,74 @@ func (certState *CertState) RefreshCertChain(SNPReport SNPAttestationReport) ([]
 	return vcekCertChain, nil
 }
 
-// RawAttest returns the raw attestation report in hex string format
-func RawAttest(inittimeDataBytes []byte, runtimeDataBytes []byte) (string, error) {
-	// check if sev device exists on the platform; if not fetch fake snp report
-	fetchRealSNPReport := true
-	if _, err := os.Stat("/dev/sev"); errors.Is(err, os.ErrNotExist) {
-		// dev/sev doesn't exist, check dev/sev-guest
-		if _, err := os.Stat("/dev/sev-guest"); errors.Is(err, os.ErrNotExist) {
-			// dev/sev-guest doesn't exist
-			fetchRealSNPReport = false
+type Platform int
+
+const (
+	TDX Platform = iota
+	SNP
+	Fake
+)
+
+func CheckPlatform() (Platform, error) {
+	TeePlatform := Fake
+
+	//check if TDX TEE
+	_, err := os.Stat("/dev/tdx")
+	if err == nil {
+		TeePlatform = TDX
+	} else {
+		_, err = os.Stat("/dev/tdx-guest")
+		if err == nil {
+			TeePlatform = TDX
 		}
 	}
 
-	SNPReportBytes, err := FetchSNPReport(fetchRealSNPReport, runtimeDataBytes, inittimeDataBytes)
+	if TeePlatform != Fake {
+		return TeePlatform, err
+	}
+
+	//check if SNP TEE
+	_, err = os.Stat("/dev/sev")
+	if err == nil {
+		TeePlatform = SNP
+	} else {
+		_, err = os.Stat("/dev/sev-guest")
+		if err == nil {
+			TeePlatform = SNP
+		}
+	}
+
+	return TeePlatform, err
+}
+
+// RawAttest returns the raw attestation report in hex string format
+func RawAttest(inittimeDataBytes []byte, runtimeDataBytes []byte) (string, error) {
+	// check if sev device exists on the platform; if not fetch fake snp report
+	TeePlatform, err := CheckPlatform()
+	if err != nil {
+		return "", errors.Wrapf(err, "fetching tee report failed")
+	}
+
+	var TEEReportBytes []byte = nil
+
+	switch TeePlatform {
+	case SNP:
+		TEEReportBytes, err = FetchSNPReport(true, runtimeDataBytes, inittimeDataBytes)
+
+	case TDX:
+		TEEReportBytes, err = FetchTDXQuote(runtimeDataBytes)
+
+	case Fake:
+		TEEReportBytes, err = FetchSNPReport(false, runtimeDataBytes, inittimeDataBytes)
+	}
+
 	if err != nil {
 		return "", errors.Wrapf(err, "fetching snp report failed")
 	}
 
-	logrus.Debugf("   SNPReportBytes:    %v", SNPReportBytes)
+	logrus.Debugf("   TEEReportBytes:    %v", TEEReportBytes)
 
-	return hex.EncodeToString(SNPReportBytes), nil
+	return hex.EncodeToString(TEEReportBytes), nil
 }
 
 // Attest interacts with maa services to fetch an MAA token
