@@ -107,9 +107,6 @@ func CheckPlatform() (Platform, error) {
 func RawAttest(inittimeDataBytes []byte, runtimeDataBytes []byte) (string, error) {
 	// check if sev device exists on the platform; if not fetch fake snp report
 	TeePlatform, err := CheckPlatform()
-	if err != nil {
-		return "", errors.Wrapf(err, "fetching tee report failed")
-	}
 
 	var TEEReportBytes []byte = nil
 
@@ -125,7 +122,7 @@ func RawAttest(inittimeDataBytes []byte, runtimeDataBytes []byte) (string, error
 	}
 
 	if err != nil {
-		return "", errors.Wrapf(err, "fetching snp report failed")
+		return "", errors.Wrapf(err, "fetching tee report failed")
 	}
 
 	logrus.Debugf("   TEEReportBytes:    %v", TEEReportBytes)
