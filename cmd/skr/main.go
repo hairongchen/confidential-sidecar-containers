@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -79,6 +80,34 @@ func getStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Status NOT OK"})
+}
+
+func getCcelAttest(c *gin.Context) {
+
+	CCEL_PATH := "/sys/firmware/acpi/tables/data/CCEL"
+	CCEL_content, err := os.ReadFile(CCEL_PATH)
+
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+	}
+
+	hex.EncodeToString(CCEL_content)
+
+	c.JSON(http.StatusOK, gin.H{"ccel": CCEL_content})
+}
+
+func getImaAttest(c *gin.Context) {
+
+	IMA_PATH := "/sys/kernel/security/ima/ascii_runtime_measurements"
+	IMA_content, err := os.ReadFile(IMA_PATH)
+
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+	}
+
+	hex.EncodeToString(IMA_content)
+
+	c.JSON(http.StatusOK, gin.H{"ccel": IMA_content})
 }
 
 // postRawAttest retrieves a hardware attestation report signed by the
@@ -223,6 +252,8 @@ func setupServer(certState attest.CertState, identity common.Identity) *gin.Engi
 
 	r.GET("/status", getStatus)
 	r.POST("/attest/raw", postRawAttest)
+	r.GET("/attest/ccel", getCcelAttest)
+	r.GET("/attest/ima", getImaAttest)
 
 	// the implementation of attest/maa and key/release APIs call MAA service
 	// to retrieve a MAA token. The MAA API requires that the request carries
@@ -258,8 +289,10 @@ func main() {
 
 	// Leaving this line here, as a comment, to aid debugging.
 	// hostname := flag.String("hostname", "localhost", "address on which to listen (dangerous)")
-	localhost := "localhost"
-	hostname := &localhost
+	// localhost := "localhost"
+	anyhost := "0.0.0.0"
+	//hostname := &localhost
+	hostname := &anyhost
 
 	flag.Usage = usage
 
