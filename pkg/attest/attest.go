@@ -75,29 +75,17 @@ func CheckPlatform() (Platform, error) {
 	TeePlatform := Fake
 
 	//check if TDX TEE
-	_, err := os.Stat("/dev/tdx")
+	_, err := os.Stat("/dev/tdx-guest")
 	if err == nil {
 		TeePlatform = TDX
-	} else {
-		_, err = os.Stat("/dev/tdx-guest")
-		if err == nil {
-			TeePlatform = TDX
-		}
-	}
-
-	if TeePlatform != Fake {
 		return TeePlatform, err
 	}
 
 	//check if SNP TEE
-	_, err = os.Stat("/dev/sev")
+	_, err = os.Stat("/dev/sev-guest")
 	if err == nil {
 		TeePlatform = SNP
-	} else {
-		_, err = os.Stat("/dev/sev-guest")
-		if err == nil {
-			TeePlatform = SNP
-		}
+		return TeePlatform, err
 	}
 
 	return TeePlatform, err
